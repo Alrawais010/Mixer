@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2e7d32">
+<title>خلّاط الأعلاف</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<style>
+:root{--g:#2e7d32;--gl:#e8f5e9;--bg:#f4f6f3;--tx:#1b1b1b;--mu:#666;--bd:#d9ded6;--rd:#c62828;--or:#e65100}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,"Noto Naskh Arabic",Tahoma,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:90px}
+header{background:var(--g);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+header h1{font-size:20px;margin:0;flex:1}
+header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:8px 12px;font-size:15px}
+main{max-width:720px;margin:0 auto;padding:12px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:12px}
+.btn{background:var(--g);color:#fff;border:0;border-radius:12px;padding:13px 16px;font-size:18px;width:100%;margin-bottom:10px}
+.btn.sec{background:var(--gl);color:var(--g)}
+.btn.del{background:#fdecea;color:var(--rd)}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+input,select{font:inherit;font-size:17px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:#fff;min-width:0;width:100%;color:var(--tx)}
+input.num{text-align:center;direction:ltr}
+details summary{color:var(--g);font-weight:bold;padding:6px 0}
+label{font-size:12.5px;color:var(--mu);display:block;margin-bottom:3px}
+.item{border:1px solid var(--bd);border-radius:12px;padding:10px;margin-bottom:10px;background:#fbfcfb}
+.item .x{background:#fdecea;color:var(--rd);border:0;border-radius:10px;height:44px;width:44px;font-size:18px;flex:none}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.sub{font-size:12.5px;color:var(--mu);margin-top:6px;min-height:4px}
+.mixitem{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+.mixitem b{font-size:18px}
+.mixitem small{color:var(--mu)}
+.tot{font-size:22px;font-weight:bold;color:var(--g);text-align:center}
+.cost{font-size:16px;font-weight:bold;color:var(--or);text-align:center;margin-top:4px}
+.legend div{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--bd);font-size:15px}
+.dot{width:14px;height:14px;border-radius:50%;flex:none}
+.legend span.n{flex:1}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 3px;border-bottom:1px solid var(--bd);text-align:center}
+th{background:var(--gl);color:var(--g);font-size:12.5px}
+td:first-child,th:first-child{text-align:right}
+td.c{color:var(--or);font-weight:bold}
+h3{margin:4px 0 10px;font-size:17px}
+h2{margin:14px 4px 8px;font-size:18px;color:var(--g)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
+.nav button{flex:1;border:0;background:none;padding:14px 2px;font-size:15px;color:var(--mu)}
+.nav button.on{color:var(--g);font-weight:bold;border-top:3px solid var(--g)}
+.empty{text-align:center;color:var(--mu);padding:30px 10px}
+#toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1b1b1b;color:#fff;padding:12px 22px;border-radius:24px;font-size:17px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+#toast.show{opacity:.92}
+</style>
+</head>
+<body>
+<header><button id="back" style="display:none">→ رجوع</button><h1 id="ttl">التموينات</h1><button id="bk">نسخة</button></header>
+<main id="app"></main>
+<div id="toast"></div>
+<nav class="nav"><button id="n1" class="on">التموينات</button><button id="n4">الأعلاف</button><button id="n3">الاحتياج</button><button id="n2">المحفوظات</button></nav>
+<script>
+const KEY='feedmix_v6';
+const COLORS=['#2e7d32','#f9a825','#1565c0','#c62828','#6a1b9a','#00838f','#ef6c00','#5d4037','#455a64','#ad1457'];
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.mixes)S={mixes:[]};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let view='tams',cur=null,curTam=null,curSave=null;
+S.tams=S.tams||[];S.saves=S.saves||[];S.feeds=S.feeds||[];S.proj=S.proj||{tam:'',rows:[]};
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const $=s=>document.querySelector(s);
+function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1800)}
+
+const AR='٠١٢٣٤٥٦٧٨٩';
+const toAr=s=>String(s).replace(/[0-9]/g,d=>AR[d]).replace(/\./g,'٫');
+const norm=s=>String(s).replace(/[٠-٩]/g,d=>AR.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٫,،]/g,'.').replace(/[^0-9.]/g,'').replace(/^(\d*\.\d*)\..*$/,'$1');
+const num=v=>{const n=parseFloat(v);return isNaN(n)?0:n};
+const fmt=n=>toAr((Math.round(n*100)/100).toString());
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())};
+const showDate=d=>toAr(String(d).replace(/-/g,'/'));
+
+const headsOf=m=>num(m.heads)||100;
+const mixTotal=m=>m.items.reduce((a,i)=>a+num(i.k),0);
+const itemCost=it=>num(it.b)>0?num(it.k)/num(it.b)*num(it.p):0;
+const mixCost=m=>m.items.reduce((a,i)=>a+itemCost(i),0);
+const newItem=()=>({f:'',k:''});
+const feedOf=id=>S.feeds.find(f=>f.id===id);
+const rm=m=>({...m,items:m.items.map(it=>{const f=feedOf(it.f);return{n:f?f.name:'',k:it.k,b:f?f.bag:'',p:f?f.price:''}})});
+const mixCostRaw=m=>mixCost(rm(m));
+function migrate(){
+  S.tams=S.tams||[];S.saves=S.saves||[];S.feeds=S.feeds||[];S.proj=S.proj||{tam:'',rows:[]};
+  if(S.mixes.some(m=>!m.tam)){let t=S.tams[0];if(!t){t={id:uid(),title:'التموين الحالي'};S.tams.push(t)}S.mixes.forEach(m=>{if(!m.tam)m.tam=t.id})}
+  S.mixes.forEach(m=>m.items.forEach(it=>{
+    if(it.f===undefined){
+      const nm=(it.n||'').trim();
+      if(nm||num(it.p)){
+        let fd=S.feeds.find(x=>x.name===nm&&String(x.bag)===String(it.b||'')&&String(x.price)===String(it.p||''));
+        if(!fd){fd={id:uid(),name:nm||'علف',bag:it.b||'50',price:it.p||''};S.feeds.push(fd)}
+        it.f=fd.id;
+      }else it.f='';
+      delete it.n;delete it.b;delete it.p;
+    }
+  }));
+  save();
+}
+const tamOf=id=>S.tams.find(t=>t.id===id);
+const mixesOf=id=>S.mixes.filter(m=>m.tam===id);
+
+function newTam(){const t={id:uid(),title:'تموين جديد'};S.tams.push(t);save();curTam=t.id;view='tam';render()}
+function newMix(){const m={id:uid(),title:'خلطة جديدة',tam:curTam,times:'1',days:'30',heads:'100',items:[]};for(let i=0;i<6;i++)m.items.push(newItem());S.mixes.push(m);save();open(m.id)}
+function open(id){cur=id;view='mix';render()}
+
+function setHeader(){
+  $('#back').style.display=(view==='tam'||view==='mix'||view==='saved')?'':'none';
+  const T={tams:'التموينات',tam:'التموين',mix:'تفاصيل الخلطة',feeds:'الأعلاف',proj:'احتياج التموين',saves:'المحفوظات',saved:'خطة محفوظة'};
+  $('#ttl').textContent=T[view];
+  $('#n1').className=(view==='tams'||view==='tam'||view==='mix')?'on':'';
+  $('#n3').className=view==='proj'?'on':'';$('#n4').className=view==='feeds'?'on':'';
+  $('#n2').className=(view==='saves'||view==='saved')?'on':'';
+}
+$('#back').onclick=()=>{
+  if(view==='mix'){save();const m=S.mixes.find(x=>x.id===cur);if(m)curTam=m.tam;view='tam'}
+  else if(view==='tam'){view='tams'}
+  else if(view==='saved'){view='saves'}
+  render();
+};
+$('#n1').onclick=()=>{view='tams';render()};
+$('#n3').onclick=()=>{view='proj';render()};
+$('#n4').onclick=()=>{view='feeds';render()};
+$('#n2').onclick=()=>{view='saves';render()};
+function render(){setHeader();window.scrollTo(0,0);
+  ({tams:renderTams,tam:renderTam,mix:renderMix,feeds:renderFeeds,proj:renderProj,saves:renderSaves,saved:renderSaved})[view]();}
+
+/* ===== التموينات ===== */
+function renderTams(){
+  let h='';
+  if(!S.tams.length)h+='<div class="empty">لا توجد تموينات بعد.<br>اضغط «تموين جديد» (مثل: تموين الصيف) ثم أضف تحته الخلطات.</div>';
+  S.tams.forEach(t=>{const n=mixesOf(t.id).length;
+    h+=`<div class="card mixitem" data-id="${t.id}"><div><b>${esc(t.title)}</b><br><small>${toAr(n)} خلطة</small></div><span style="font-size:22px;color:var(--g)">‹</span></div>`});
+  h+='<button class="btn" id="addt">+ تموين جديد</button>';
+  h+='<div class="sub" style="text-align:center">الإصدار ١٠</div>';
+  $('#app').innerHTML=h;
+  document.querySelectorAll('.mixitem').forEach(e=>e.onclick=()=>{curTam=e.dataset.id;view='tam';render()});
+  $('#addt').onclick=newTam;
+}
+function renderTam(){
+  const t=tamOf(curTam);if(!t){view='tams';return render()}
+  let h=`<div class="card"><label>اسم التموين</label><input id="tt" value="${esc(t.title)}"></div>`;
+  const ms=mixesOf(t.id);
+  if(!ms.length)h+='<div class="empty">لا توجد خلطات في هذا التموين.</div>';
+  ms.forEach(m=>{const c=mixCostRaw(m);
+    h+=`<div class="card mixitem" data-id="${m.id}"><div><b>${esc(m.title)}</b><br><small>${fmt(mixTotal(m))} كجم لـ ${toAr(headsOf(m))} رأس · ${toAr(num(m.times)||1)} مرة يوميًا${c?' · '+fmt(c)+' ريال للخلطة':''}</small></div><span style="font-size:22px;color:var(--g)">‹</span></div>`});
+  h+='<button class="btn" id="addm">+ خلطة جديدة</button><button class="btn del" id="delt">حذف هذا التموين</button>';
+  $('#app').innerHTML=h;
+  $('#tt').oninput=e=>{t.title=e.target.value;save()};
+  document.querySelectorAll('.mixitem').forEach(e=>e.onclick=()=>open(e.dataset.id));
+  $('#addm').onclick=newMix;
+  $('#delt').onclick=()=>{if(confirm('حذف التموين «'+t.title+'» وكل خلطاته؟')){
+    const ids=mixesOf(t.id).map(m=>m.id);S.mixes=S.mixes.filter(m=>m.tam!==t.id);S.tams=S.tams.filter(x=>x!==t);
+    S.proj.rows=S.proj.rows.filter(r=>!ids.includes(r.mix));if(S.proj.tam===t.id)S.proj={tam:'',rows:[]};
+    save();view='tams';render()}};
+}
+
+/* ===== الخلطة ===== */
+function renderMix(){
+  const m=S.mixes.find(x=>x.id===cur);if(!m){view='tams';return render()}
+  let h=`<div class="card"><label>عنوان الخلطة</label><input id="mt" value="${esc(m.title)}">
+  <div style="margin-top:8px"><label>ضمن التموين</label><select id="mtam">${S.tams.map(t=>`<option value="${t.id}"${t.id===m.tam?' selected':''}>${esc(t.title)}</option>`).join('')}</select></div>
+  <div class="three" style="margin-top:8px"><div><label>عدد الرؤوس للخلطة</label><input class="num" id="mheads" inputmode="decimal" value="${toAr(m.heads||'100')}"></div>
+  <div><label>خلطات في اليوم</label><input class="num" id="mtimes" inputmode="decimal" value="${toAr(m.times)}"></div>
+  <div><label>أيام الشهر</label><input class="num" id="mdays" inputmode="decimal" value="${toAr(m.days)}"></div></div></div>
+  <div class="card"><h3>الأنواع</h3><div id="items">`;
+  if(!S.feeds.length)h+='<div class="empty" style="padding:8px">لا توجد أعلاف بعد. أضف أعلافك أولًا من تبويب «الأعلاف».</div>';
+  m.items.forEach((it,i)=>{
+    h+=`<div class="item"><div class="row"><select data-i="${i}" data-f="f"><option value="">— اختر العلف —</option>${S.feeds.map(f=>`<option value="${f.id}"${f.id===it.f?' selected':''}>${esc(f.name)}</option>`).join('')}</select><button class="x" data-del="${i}">✕</button></div>
+    <label>الكمية (كجم)</label><input class="num" data-i="${i}" data-f="k" inputmode="decimal" placeholder="٠" value="${toAr(it.k)}">
+    <div class="sub" id="sub${i}"></div></div>`;
+  });
+  h+=`</div><button class="btn sec" id="addi">+ إضافة نوع</button></div>
+  <div class="card"><div class="tot" id="tot"></div><div class="cost" id="bcost"></div><div id="chart" style="text-align:center;margin:8px 0"></div><div class="legend" id="leg"></div></div>
+  <button class="btn" id="sv">💾 حفظ</button>
+  <button class="btn del" id="rm">حذف هذه الخلطة</button>`;
+  $('#app').innerHTML=h;
+  $('#mt').oninput=e=>{m.title=e.target.value;save()};
+  $('#mtam').onchange=e=>{m.tam=e.target.value;save()};
+  const numIn=(el,set)=>{el.oninput=()=>{const r=norm(el.value);el.value=toAr(r);set(r);save();calc(m)}};
+  numIn($('#mheads'),r=>m.heads=r);numIn($('#mtimes'),r=>m.times=r);numIn($('#mdays'),r=>m.days=r);
+  document.querySelectorAll('#items [data-f]').forEach(el=>{
+    const it=m.items[el.dataset.i],f=el.dataset.f;
+    if(f==='f')el.onchange=()=>{it.f=el.value;save();calc(m)};
+    else numIn(el,r=>it[f]=r);
+  });
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{m.items.splice(b.dataset.del,1);save();renderMix()});
+  $('#addi').onclick=()=>{m.items.push(newItem());save();renderMix()};
+  $('#sv').onclick=()=>{save();toast('تم الحفظ ✔');curTam=m.tam;view='tam';setTimeout(render,350)};
+  $('#rm').onclick=()=>{if(confirm('حذف الخلطة «'+m.title+'»؟')){S.mixes=S.mixes.filter(x=>x!==m);S.proj.rows=S.proj.rows.filter(r=>r.mix!==m.id);save();curTam=m.tam;view='tam';render()}};
+  calc(m);
+}
+function calc(m0){
+  const m=rm(m0);
+  const total=mixTotal(m),bc=mixCost(m);
+  $('#tot').textContent='الوزن النهائي: '+fmt(total)+' كجم';
+  $('#bcost').textContent=bc?'تكلفة الخلطة الواحدة: '+fmt(bc)+' ريال':'';
+  const rows=m.items.map((it,i)=>({i,n:it.n||('علف '+toAr(i+1)),k:num(it.k)})).filter(r=>r.k>0);
+  const R=70,C=2*Math.PI*R;let cum=0,svg='<svg viewBox="0 0 200 200" width="230" height="230"><g transform="rotate(-90 100 100)">';
+  if(!total)svg+=`<circle cx="100" cy="100" r="${R}" fill="none" stroke="#e5e8e3" stroke-width="34"/>`;
+  rows.forEach(r=>{const len=r.k/total*C;
+    svg+=`<circle cx="100" cy="100" r="${R}" fill="none" stroke="${COLORS[r.i%COLORS.length]}" stroke-width="34" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-cum}"/>`;cum+=len});
+  svg+=`</g><text x="100" y="96" text-anchor="middle" font-size="26" font-weight="bold" fill="#1b1b1b">${fmt(total)}</text><text x="100" y="118" text-anchor="middle" font-size="15" fill="#666">كجم</text></svg>`;
+  $('#chart').innerHTML=svg;
+  $('#leg').innerHTML=rows.map(r=>`<div><span class="dot" style="background:${COLORS[r.i%COLORS.length]}"></span><span class="n">${esc(r.n)}</span><b>${fmt(r.k)} كجم</b><span style="min-width:62px;text-align:left">${fmt(r.k/total*100)}٪</span></div>`).join('')||'<div class="empty">اختر الأعلاف واكتب الكميات لتظهر الدائرة</div>';
+  m.items.forEach((it,i)=>{const e=document.getElementById('sub'+i);if(!e)return;
+    const k=num(it.k),parts=[];
+    if(it.n){parts.push('كيس '+fmt(num(it.b))+' كجم'+(num(it.p)?' بسعر '+fmt(num(it.p))+' ريال':''))}
+    if(k>0&&total)parts.push('النسبة '+fmt(k/total*100)+'٪');
+    if(k>0&&num(it.p)>0&&num(it.b)>0)parts.push('التكلفة '+fmt(itemCost(it))+' ريال');
+    else if(k>0&&it.n&&!(num(it.b)>0))parts.push('أدخل وزن الكيس في تبويب الأعلاف');
+    e.textContent=parts.join(' · ')});
+}
+
+/* ===== التقرير (مشترك بين الاحتياج والمحفوظات) ===== */
+function reportHTML(rows){
+  const agg={};let tD=0,tM=0,cD=0,cM=0,pens='',any=false;
+  rows.forEach(r=>{
+    const m=r.m,heads=num(r.heads);if(!m||heads<=0)return;any=true;
+    const f=heads/headsOf(m),times=num(m.times)||0,days=num(m.days)||0;
+    const kgD=mixTotal(m)*f*times,kgM=kgD*days,costD=mixCost(m)*f*times,costM=costD*days;
+    tD+=kgD;tM+=kgM;cD+=costD;cM+=costM;
+    let tb='<table><tr><th>النوع</th><th>كجم/يوم</th><th>أكياس/يوم</th></tr>';
+    m.items.forEach(it=>{const k=num(it.k);if(k<=0)return;
+      const n=it.n.trim()||'بدون اسم',b=num(it.b),p=num(it.p),d=k*f*times,mo=d*days;
+      tb+=`<tr><td>${esc(n)}</td><td>${fmt(d)}</td><td>${b?fmt(d/b):'—'}</td></tr>`;
+      const key=n+'|'+b+'|'+p;(agg[key]=agg[key]||{n,b,p,d:0,mo:0});agg[key].d+=d;agg[key].mo+=mo;
+    });
+    tb+='</table>';
+    const pen=(r.pen||'').trim();
+    pens+=`<div class="card"><h3>${esc(pen||m.title)} <small style="color:var(--mu)">(${pen?esc(m.title)+' — ':''}${toAr(heads)} رأس)</small></h3><div class="two">
+    <div>الاحتياج اليومي<br><b>${fmt(kgD)} كجم</b></div><div>السعر اليومي<br><b style="color:var(--or)">${fmt(costD)} ريال</b></div>
+    <div>الاحتياج الشهري<br><b>${fmt(kgM)} كجم</b></div><div>السعر الشهري<br><b style="color:var(--or)">${fmt(costM)} ريال</b></div></div>
+    <details style="margin-top:8px"><summary>تفاصيل الأنواع</summary><div style="overflow-x:auto">${tb}</div></details></div>`;
+  });
+  if(!any)return{html:'<div class="empty">اكتب عدد الرؤوس لكل خلطة لتظهر الاحتياجات.</div>',cM:0,cD:0};
+  const top=`<div class="card"><h3>إجمالي التموين</h3><div class="two"><div>كجم يوميًا<br><span class="tot">${fmt(tD)}</span></div><div>كجم شهريًا<br><span class="tot">${fmt(tM)}</span></div>
+  <div>السعر اليومي<br><span class="tot" style="color:var(--or)">${fmt(cD)} ريال</span></div><div>السعر الشهري<br><span class="tot" style="color:var(--or)">${fmt(cM)} ريال</span></div></div></div>`;
+  let t='<div class="card"><h3>المشترى الشهري من كل نوع</h3><div style="overflow-x:auto"><table><tr><th>النوع</th><th>أكياس/يوم</th><th>أكياس/شهر</th><th>سعر/يوم</th><th>سعر/شهر</th></tr>';
+  Object.values(agg).forEach(a=>{const ok=a.b>0;
+    t+=`<tr><td>${esc(a.n)}<br><small style="color:var(--mu)">${fmt(a.d)} كجم/يوم · ${fmt(a.mo)} كجم/شهر${ok?' · كيس '+fmt(a.b):''}</small></td><td>${ok?fmt(a.d/a.b):'—'}</td><td>${ok?fmt(a.mo/a.b)+'<br><small style="color:var(--g)">(شراء '+toAr(Math.ceil(a.mo/a.b-1e-9))+')</small>':'—'}</td><td class="c">${ok&&a.p?fmt(a.d/a.b*a.p):'—'}</td><td class="c">${ok&&a.p?fmt(a.mo/a.b*a.p):'—'}</td></tr>`});
+  t+='</table></div></div>';
+  return{html:top+t+'<h2>احتياج كل شبك يوميًا</h2>'+pens,cM,cD};
+}
+
+
+/* ===== الأعلاف ===== */
+function usedCount(id){return S.mixes.reduce((a,m)=>a+m.items.filter(it=>it.f===id).length,0)}
+function renderFeeds(){
+  let h='<div class="card"><div class="sub" style="margin:0">أضف علفك مرة واحدة هنا بوزن الكيس وسعره، ثم اخترته من القائمة داخل الخلطات. وتغيير السعر هنا يتحدث في كل الخلطات تلقائيًا.</div></div>';
+  if(!S.feeds.length)h+='<div class="empty">لا توجد أعلاف بعد.</div>';
+  S.feeds.forEach((f,i)=>{
+    h+=`<div class="item"><div class="row"><input data-i="${i}" data-f="name" placeholder="اسم العلف (مثل: شعير)" value="${esc(f.name)}"><button class="x" data-del="${i}">✕</button></div>
+    <div class="two"><div><label>وزن الكيس (كجم)</label><input class="num" data-i="${i}" data-f="bag" inputmode="decimal" placeholder="٥٠" value="${toAr(f.bag||'')}"></div>
+    <div><label>سعر الكيس (ريال)</label><input class="num" data-i="${i}" data-f="price" inputmode="decimal" placeholder="٠" value="${toAr(f.price||'')}"></div></div>
+    <div class="sub" id="fk${i}"></div></div>`;
+  });
+  h+='<button class="btn" id="addf">+ إضافة علف</button>';
+  $('#app').innerHTML=h;
+  const kg=i=>{const f=S.feeds[i],e=document.getElementById('fk'+i);if(e)e.textContent=num(f.bag)>0&&num(f.price)>0?'سعر الكيلو: '+fmt(num(f.price)/num(f.bag))+' ريال':''};
+  S.feeds.forEach((f,i)=>kg(i));
+  document.querySelectorAll('#app [data-f]').forEach(el=>{
+    const f=S.feeds[el.dataset.i],k=el.dataset.f;
+    if(k==='name')el.oninput=()=>{f.name=el.value;save()};
+    else el.oninput=()=>{const r=norm(el.value);el.value=toAr(r);f[k]=r;save();kg(el.dataset.i)};
+  });
+  document.querySelectorAll('#app [data-del]').forEach(b=>b.onclick=()=>{
+    const f=S.feeds[b.dataset.del],n=usedCount(f.id);
+    if(confirm(n?('هذا العلف مستخدم في '+toAr(n)+' موضع داخل الخلطات. حذفه سيفرغ خانته. متابعة؟'):'حذف «'+f.name+'»؟')){
+      S.feeds.splice(b.dataset.del,1);S.mixes.forEach(m=>m.items.forEach(it=>{if(it.f===f.id)it.f=''}));save();renderFeeds()}});
+  $('#addf').onclick=()=>{S.feeds.push({id:uid(),name:'',bag:'50',price:''});save();renderFeeds();const ins=document.querySelectorAll('#app [data-f=name]');if(ins.length)ins[ins.length-1].focus()};
+}
+
+/* ===== الاحتياج ===== */
+function fillRows(tamId){S.proj.rows=mixesOf(tamId).map(m=>({id:uid(),pen:'',mix:m.id,heads:''}))}
+function projRows(){return S.proj.rows.map(r=>{const mm=S.mixes.find(x=>x.id===r.mix);return{pen:r.pen,heads:r.heads,m:mm?rm(mm):undefined}})}
+function renderProj(){
+  const tams=S.tams.filter(t=>mixesOf(t.id).length);
+  if(!tams.length){$('#app').innerHTML='<div class="empty">أنشئ تموينًا وأضف له خلطات أولًا من تبويب «التموينات».</div>';return}
+  if(!tams.some(t=>t.id===S.proj.tam)){S.proj.tam=tams[0].id;fillRows(S.proj.tam);save()}
+  const ms=mixesOf(S.proj.tam);
+  let h=`<div class="card"><label>نوع التموين</label><select id="ptam">${tams.map(t=>`<option value="${t.id}"${t.id===S.proj.tam?' selected':''}>${esc(t.title)}</option>`).join('')}</select></div>
+  <div class="card"><h3>العدد لكل خلطة (شبك)</h3><div id="prows">`;
+  S.proj.rows.forEach((r,i)=>{
+    h+=`<div class="item"><div class="row"><input data-i="${i}" data-f="pen" placeholder="اسم الشبك (اختياري)" value="${esc(r.pen||'')}"><button class="x" data-del="${i}">✕</button></div>
+    <div class="two"><div><label>الخلطة</label><select data-i="${i}" data-f="mix">${ms.map(m=>`<option value="${m.id}"${m.id===r.mix?' selected':''}>${esc(m.title)}</option>`).join('')}</select></div>
+    <div><label>عدد الرؤوس</label><input class="num" data-i="${i}" data-f="heads" inputmode="decimal" placeholder="٠" value="${toAr(r.heads||'')}"></div></div></div>`;
+  });
+  h+='</div><button class="btn sec" id="addp">+ إضافة شبك</button></div><button class="btn" id="savep">💾 حفظ الخطة بتاريخ وعنوان</button><div id="pres"></div>';
+  $('#app').innerHTML=h;
+  $('#ptam').onchange=e=>{S.proj.tam=e.target.value;fillRows(S.proj.tam);save();renderProj()};
+  document.querySelectorAll('#prows [data-f]').forEach(el=>{
+    const r=S.proj.rows[el.dataset.i],f=el.dataset.f;
+    if(f==='mix')el.onchange=()=>{r.mix=el.value;save();calcProj()};
+    else if(f==='pen')el.oninput=()=>{r.pen=el.value;save();calcProj()};
+    else el.oninput=()=>{const v=norm(el.value);el.value=toAr(v);r.heads=v;save();calcProj()};
+  });
+  document.querySelectorAll('#prows [data-del]').forEach(b=>b.onclick=()=>{S.proj.rows.splice(b.dataset.del,1);save();renderProj()});
+  $('#addp').onclick=()=>{S.proj.rows.push({id:uid(),pen:'',mix:ms[0].id,heads:''});save();renderProj()};
+  $('#savep').onclick=savePlan;
+  calcProj();
+}
+function calcProj(){$('#pres').innerHTML=reportHTML(projRows()).html}
+function savePlan(){
+  const rows=projRows().filter(r=>r.m&&num(r.heads)>0);
+  if(!rows.length){alert('اكتب عدد الرؤوس أولًا');return}
+  const t=tamOf(S.proj.tam),d=today();
+  const title=prompt('عنوان الخطة (للعودة إليها لاحقًا)',(t?t.title:'')+' '+d.slice(0,4));
+  if(!title)return;
+  S.saves.push({id:uid(),title:title.trim(),date:d,tam:t?t.title:'',rows:rows.map(r=>({pen:r.pen||'',heads:r.heads,m:JSON.parse(JSON.stringify(r.m))}))});
+  save();toast('تم حفظ الخطة ✔');
+}
+
+/* ===== المحفوظات ===== */
+function renderSaves(){
+  if(!S.saves.length){$('#app').innerHTML='<div class="empty">لا توجد خطط محفوظة.<br>من تبويب «الاحتياج» اضغط «حفظ الخطة».</div>';return}
+  const list=S.saves.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  let h='',year='';
+  list.forEach(s=>{const y=s.date.slice(0,4);
+    if(y!==year){year=y;h+=`<h2>${toAr(y)}</h2>`}
+    const r=reportHTML(s.rows.map(x=>({pen:x.pen,heads:x.heads,m:x.m})));
+    h+=`<div class="card mixitem" data-id="${s.id}"><div><b>${esc(s.title)}</b><br><small>${showDate(s.date)} · ${esc(s.tam)} · ${fmt(r.cM)} ريال شهريًا</small></div><span style="font-size:22px;color:var(--g)">‹</span></div>`});
+  $('#app').innerHTML=h;
+  document.querySelectorAll('.mixitem').forEach(e=>e.onclick=()=>{curSave=e.dataset.id;view='saved';render()});
+}
+function renderSaved(){
+  const s=S.saves.find(x=>x.id===curSave);if(!s){view='saves';return render()}
+  const r=reportHTML(s.rows.map(x=>({pen:x.pen,heads:x.heads,m:x.m})));
+  $('#app').innerHTML=`<div class="card"><label>عنوان الخطة</label><input id="st" value="${esc(s.title)}"><div class="sub">${showDate(s.date)} · ${esc(s.tam)}</div></div>`+r.html+'<button class="btn del" id="dels">حذف هذه الخطة</button>';
+  $('#st').oninput=e=>{s.title=e.target.value;save()};
+  $('#dels').onclick=()=>{if(confirm('حذف الخطة «'+s.title+'»؟')){S.saves=S.saves.filter(x=>x!==s);save();view='saves';render()}};
+}
+
+/* ===== نسخة احتياطية ===== */
+$('#bk').onclick=()=>{
+  const c=prompt('اكتب: ١ لنسخ البيانات، ٢ للصق نسخة محفوظة','١');
+  const v=norm(c||'');
+  if(v==='1'){const t=JSON.stringify(S);
+    (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>alert('تم نسخ البيانات. الصقها في ملاحظة أو رسالة لحفظها.')).catch(()=>prompt('انسخ هذا النص:',t))}
+  else if(v==='2'){const t=prompt('الصق النسخة المحفوظة هنا');if(!t)return;
+    try{const d=JSON.parse(t);if(!d.mixes)throw 0;S=d;migrate();view='tams';render()}catch(e){alert('نسخة غير صالحة')}}
+};
+migrate();
+render();
+/* لا نستخدم service worker داخل التطبيق: نزيل أي نسخة قديمة وذاكرتها حتى تظهر التحديثات */
+if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});
+if(window.caches)caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
+</script>
+</body>
+</html>
